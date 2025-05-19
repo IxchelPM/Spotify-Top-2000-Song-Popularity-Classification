@@ -1,0 +1,708 @@
+---
+title: "Classification Models for Top 2000 Spotify Songs"
+author: "Ixchel Peralta-martinez"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+suppressPackageStartupMessages({
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+library(knitr)
+library(kableExtra)
+library(e1071)
+library("papeR")
+library(class)
+library(MASS)    
+library(data.table)})
+```
+
+
+```{r}
+# Load the data
+Songs = read.csv("Data/songsNewGenre.csv", header = TRUE)
+head(Songs)
+
+# Clean and preprocess the data
+Songs = Songs[,-18]
+Songs = Songs %>%
+  rename(
+   BPM = Beats.Per.Minute..BPM.,
+   dB = Loudness..dB.,
+   Duration = Length..Duration.
+  ) # rename columns
+Songs$Duration = as.integer(gsub(",", "", Songs$Duration))
+
+# Create genre categories and popularity binary classification
+genre_cat_Num = rep(0, 1994)
+for(i in 1:1994){
+  if(Songs$Abbrev[i] == "rock"){
+    genre_cat_Num[i] = 1
+  }
+  else if(Songs$Abbrev[i] == "pop"){
+    genre_cat_Num[i] = 2
+  }
+  else if(Songs$Abbrev[i] == "adult standards"){
+    genre_cat_Num[i] = 3
+  }
+  else if(Songs$Abbrev[i] == "dance"){
+    genre_cat_Num[i] = 4
+  }
+  else if(Songs$Abbrev[i] == "alternative"){
+    genre_cat_Num[i] = 5
+  }
+  else{
+    genre_cat_Num[i] = 6
+  }
+}
+popularity_cat = ifelse(Songs$Popularity < median(Songs$Popularity), 0, 1)
+Songs = data.frame(Songs, popularity_cat, genre_cat_Num)
+
+# Create dataset for modeling with only relevant features
+FullPop = Songs[, c(-1, -2, -3, -4, -5, -6, -16, -17)]
+```
+
+
+### Exploratory Data Analysis
+
+```{r}
+# Examine the relationship between variables
+pairs(FullPop)
+```
+
+```{r}
+# Check correlation between variables
+cor(FullPop)
+```
+
+```{r}
+# Check for multicollinearity
+lm.fit = lm(popularity_cat~., FullPop)
+vif(lm.fit)
+```
+
+## Part 1: Full Dataset Models
+
+### Linear Discriminant Analysis (LDA) on Full Dataset
+
+```{r}
+set.seed(1)
+start.time <- Sys.time() 
+lda.fit = lda(FullPop$popularity_cat ~ BPM+Energy+Danceability+dB+Liveness+Valence+Duration+Acousticness+Speechiness+genre_cat_Num, data=FullPop)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+lda.pred = predict(lda.fit, FullPop)
+lda.class = lda.pred$class
+table(lda.class, FullPop$popularity_cat)
+
+# Calculate accuracy
+mean(lda.class == FullPop$popularity_cat)
+
+# Calculate error rate
+mean(lda.class != FullPop$popularity_cat)
+```
+
+### Quadratic Discriminant Analysis (QDA) on Full Dataset
+
+```{r}
+set.seed(1)
+start.time <- Sys.time()
+qda.fit = qda(FullPop$popularity_cat ~ BPM+Energy+Danceability+dB+Liveness+Valence+Duration+Acousticness+Speechiness+genre_cat_Num, data=FullPop)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+qda.class = predict(qda.fit, FullPop)$class
+table(qda.class, FullPop$popularity_cat)
+
+# Calculate accuracy
+mean(qda.class == FullPop$popularity_cat)
+
+# Calculate error rate
+mean(qda.class != FullPop$popularity_cat)
+```
+
+### Logistic Regression on Full Dataset
+
+```{r}
+set.seed(1)
+start.time <- Sys.time()
+glm.fit = glm(FullPop$popularity_cat ~ BPM+Energy+Danceability+dB+Liveness+Valence+Duration+Acousticness+Speechiness+genre_cat_Num, data=FullPop)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+glm.probs = predict(glm.fit, type="response")
+glm.pred = rep(0, 1994)
+glm.pred[glm.probs > .5] = 1
+table(glm.pred, FullPop$popularity_cat)
+
+# Calculate accuracy
+mean(glm.pred == FullPop$popularity_cat)
+
+# Calculate error rate
+mean(glm.pred != FullPop$popularity_cat)
+```
+
+### K-Nearest Neighbors (KNN) on Full Dataset
+
+```{r}
+# KNN with k = 7
+set.seed(1)
+start.time <- Sys.time()
+knn.pred = knn(FullPop, FullPop, FullPop$popularity_cat, k = 7)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.pred, FullPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.pred == FullPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.pred != FullPop$popularity_cat)
+```
+
+```{r}
+# KNN with k = 3
+set.seed(1)
+start.time <- Sys.time()
+knn.pred3 = knn(FullPop, FullPop, FullPop$popularity_cat, k = 3)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.pred3, FullPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.pred3 == FullPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.pred3 != FullPop$popularity_cat)
+```
+
+```{r}
+# KNN with k = 5
+set.seed(1)
+start.time <- Sys.time()
+knn.pred5 = knn(FullPop, FullPop, FullPop$popularity_cat, k = 5)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.pred5, FullPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.pred5 == FullPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.pred5 != FullPop$popularity_cat)
+```
+
+```{r}
+# KNN with k = 10
+set.seed(1)
+start.time <- Sys.time()
+knn.pred10 = knn(FullPop, FullPop, FullPop$popularity_cat, k = 10)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.pred10, FullPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.pred10 == FullPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.pred10 != FullPop$popularity_cat)
+```
+
+## Part 2: Training and Test Split Models
+
+```{r}
+set.seed(1)
+test = sample(1:nrow(FullPop), 997)
+trainPop = FullPop[-test,]
+testPop = FullPop[test,]
+```
+
+### Linear Discriminant Analysis (LDA) with Train/Test Split
+
+```{r}
+set.seed(1)
+start.time <- Sys.time()
+lda.fit2 = lda(popularity_cat ~ BPM+Energy+Danceability+dB+Liveness+Valence+Duration+Acousticness+Speechiness+genre_cat_Num, data = trainPop)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+lda.pred2 = predict(lda.fit2, testPop)
+lda.class2 = lda.pred2$class
+table(lda.class2, testPop$popularity_cat)
+
+# Calculate accuracy
+mean(lda.class2 == testPop$popularity_cat)
+
+# Calculate error rate
+mean(lda.class2 != testPop$popularity_cat)
+```
+
+### Quadratic Discriminant Analysis (QDA) with Train/Test Split
+
+```{r}
+set.seed(1)
+start.time <- Sys.time()
+qda.fit2 = qda(popularity_cat ~ BPM+Energy+Danceability+dB+Liveness+Valence+Duration+Acousticness+Speechiness+genre_cat_Num, data = trainPop)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+qda.class2 = predict(qda.fit2, testPop)$class
+table(qda.class2, testPop$popularity_cat)
+
+# Calculate accuracy
+mean(qda.class2 == testPop$popularity_cat)
+
+# Calculate error rate
+mean(qda.class2 != testPop$popularity_cat)
+```
+
+### Logistic Regression with Train/Test Split
+
+```{r}
+set.seed(1)
+start.time <- Sys.time()
+glm.fit2 = glm(popularity_cat ~ BPM+Energy+Danceability+dB+Liveness+Valence+Duration+Acousticness+Speechiness+genre_cat_Num, data = trainPop, family = binomial)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+glm.probs2 = predict(glm.fit2, testPop, type="response")
+glm.pred2 = rep(0, 997)
+glm.pred2[glm.probs2 > .5] = 1
+table(glm.pred2, testPop$popularity_cat)
+
+# Calculate accuracy
+mean(glm.pred2 == testPop$popularity_cat)
+
+# Calculate error rate
+mean(glm.pred2 != testPop$popularity_cat)
+```
+
+### K-Nearest Neighbors (KNN) with Train/Test Split
+
+```{r}
+# Prepare data for KNN
+ydat = FullPop$popularity_cat
+train.pop = ydat[-test]
+
+# KNN with k = 7
+set.seed(1)
+start.time <- Sys.time()
+knn.predT7 = knn(trainPop, testPop, train.pop, k = 7)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.predT7, testPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.predT7 == testPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.predT7 != testPop$popularity_cat)
+```
+
+```{r}
+# KNN with k = 3
+set.seed(1)
+start.time <- Sys.time()
+knn.predT3 = knn(trainPop, testPop, train.pop, k = 3)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.predT3, testPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.predT3 == testPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.predT3 != testPop$popularity_cat)
+```
+
+```{r}
+# KNN with k = 5
+set.seed(1)
+start.time <- Sys.time()
+knn.predT5 = knn(trainPop, testPop, train.pop, k = 5)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.predT5, testPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.predT5 == testPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.predT5 != testPop$popularity_cat)
+```
+
+```{r}
+# KNN with k = 10
+set.seed(1)
+start.time <- Sys.time()
+knn.predT10 = knn(trainPop, testPop, train.pop, k = 10)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+table(knn.predT10, testPop$popularity_cat)
+
+# Calculate accuracy
+mean(knn.predT10 == testPop$popularity_cat)
+
+# Calculate error rate
+mean(knn.predT10 != testPop$popularity_cat)
+```
+
+## Part 3: 5-Fold Cross-Validation
+
+```{r}
+set.seed(134)
+nfold = 5
+foldi = sample(rep(1:nfold, length.out = nrow(Songs)))
+```
+
+### Logistic Regression with 5-Fold CV
+
+```{r}
+set.seed(134)
+start.time = Sys.time()
+OUT.glm = NULL
+TRUTH = NULL
+OUTPUT = NULL
+for(k in 1:nfold){
+  testID <- which(foldi == k)
+  trainSet <- FullPop[-testID, ] 
+  testSet <- FullPop[testID, ]
+  glm.fit = glm(popularity_cat~BPM+Energy+Danceability+dB+Liveness+Valence+Duration+Acousticness+Speechiness+genre_cat_Num, data = trainSet, family = binomial)
+  glm.probs = predict(glm.fit, testSet, type="response")
+  glm.pred = rep(0, length(testID))
+  glm.pred[glm.probs > .5] = 1
+  table(glm.pred, testSet$popularity_cat)
+  Accuracy = mean(glm.pred == testSet$popularity_cat)
+  OUT.glm = c(OUT.glm, Accuracy)
+  TRUTH = c(TRUTH, testSet$popularity_cat)
+  OUTPUT = c(OUTPUT, glm.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.glm)
+mean(OUT.glm)
+sd(OUT.glm)/sqrt(length(OUT.glm))
+boxplot(OUT.glm, col="pink")
+table(OUTPUT, TRUTH)
+```
+
+### LDA with 5-Fold CV
+
+```{r}
+set.seed(134)
+foldsi = sample(rep(1:nfold, length.out = nrow(FullPop))) 
+
+set.seed(134)
+start.time = Sys.time()
+OUT.LDA = NULL
+TRUTH = NULL 
+OUTPUT = NULL
+for (k in 1:nfold){
+  test.ID2 <- which(foldsi == k)
+  train_set2 <- FullPop[-test.ID2, ]
+  test_set2 <- FullPop[test.ID2, ]
+  lda.fit = lda(popularity_cat~., data=train_set2)
+  lda.pred = predict(lda.fit, test_set2[-10])
+  lda.class = lda.pred$class
+  table(lda.class, test_set2[,10])
+  Accuracy = mean(lda.class == test_set2[,10])
+  OUT.LDA = c(OUT.LDA, Accuracy)
+  TRUTH = c(TRUTH, test_set2[,10])
+  OUTPUT = c(OUTPUT, lda.class)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.LDA)
+mean(OUT.LDA)
+sd(OUT.LDA)/sqrt(length(OUT.LDA))
+boxplot(OUT.LDA, col="BLUE")
+table(OUTPUT, TRUTH)
+```
+
+### QDA with 5-Fold CV
+
+```{r}
+set.seed(134)
+folds1 = sample(rep(1:nfold, length.out = nrow(FullPop))) 
+
+set.seed(134) 
+start.time = Sys.time()
+OUT.QDA = NULL
+TRUTH = NULL 
+OUTPUT = NULL
+for (k in 1:nfold){
+  test.ID3 <- which(folds1 == k)
+  train_set3 <- FullPop[-test.ID3, ]
+  test_set3 <- FullPop[test.ID3, ]
+  qda.fit = qda(popularity_cat~., data=train_set3)
+  qda.pred = predict(qda.fit, test_set3)
+  qda.class = qda.pred$class
+  table(qda.class, test_set3[,10])
+  Accuracy = mean(qda.class == test_set3[,10])
+  OUT.QDA = c(OUT.QDA, Accuracy)
+  TRUTH = c(TRUTH, test_set3[,10])
+  OUTPUT = c(OUTPUT, qda.class)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.QDA)
+mean(OUT.QDA)
+sd(OUT.QDA)/sqrt(length(OUT.QDA))
+boxplot(OUT.QDA, col="BLUE")
+table(OUTPUT, TRUTH)
+```
+
+### KNN with 5-Fold CV
+
+```{r}
+set.seed(134)
+folds2 = sample(rep(1:nfold, length.out = nrow(FullPop)))
+
+# Make sure we don't have column issues
+FullPop = FullPop[-11]  # This appears to be a correction in the original code
+
+set.seed(134)
+start.time = Sys.time()
+OUT.KNN = NULL
+TRUTH = NULL 
+OUTPUT = NULL
+for (j in 1:nfold){
+  test.ID = which(folds2 == j)
+  train_X = FullPop[-test.ID, -10]
+  train_Y = FullPop[-test.ID, 10]
+  test_X = FullPop[test.ID, -10]
+  test_Y = FullPop[test.ID, 10]
+  knn.pred = knn(train_X, test_X, train_Y, k=3)
+  table(knn.pred, test_Y)
+  Accuracy = mean(knn.pred == test_Y)
+  OUT.KNN = c(OUT.KNN, Accuracy)
+  TRUTH = c(TRUTH, test_Y)
+  OUTPUT = c(OUTPUT, knn.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.KNN)
+mean(OUT.KNN)
+sd(OUT.KNN)/sqrt(length(OUT.KNN))
+KNN3.5fold = OUT.KNN
+boxplot(OUT.KNN, col="orange")
+table(OUTPUT, TRUTH)
+```
+
+```{r}
+set.seed(134)
+# This line was in the original code, removing it since it's redundant
+# FullPop=FullPop[-11]
+start.time = Sys.time()
+TRUTH = NULL 
+OUTPUT = NULL
+OUT.KNN5 = NULL
+for (j in 1:nfold){
+  test.ID5 = which(folds2 == j)
+  train_X5 = FullPop[-test.ID5, -10]
+  train_Y5 = FullPop[-test.ID5, 10]
+  test_X5 = FullPop[test.ID5, -10]
+  test_Y5 = FullPop[test.ID5, 10]
+  knn.pred5 = knn(train_X5, test_X5, train_Y5, k=5)
+  table(knn.pred5, test_Y5)
+  Accuracy = mean(knn.pred5 == test_Y5)
+  OUT.KNN5 = c(OUT.KNN5, Accuracy)
+  TRUTH = c(TRUTH, test_Y5)
+  OUTPUT = c(OUTPUT, knn.pred5)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.KNN5)
+mean(OUT.KNN5)
+sd(OUT.KNN5)/sqrt(length(OUT.KNN5))
+KNN5.5fold = OUT.KNN5
+boxplot(OUT.KNN5, col="orange")
+table(OUTPUT, TRUTH)
+```
+
+```{r}
+set.seed(134)
+start.time = Sys.time()
+OUT.KNN7 = NULL
+TRUTH = NULL 
+OUTPUT = NULL
+for (j in 1:nfold){
+  test.ID7 = which(folds2 == j)
+  train_X7 = FullPop[-test.ID7, -10]
+  train_Y7 = FullPop[-test.ID7, 10]
+  test_X7 = FullPop[test.ID7, -10]
+  test_Y7 = FullPop[test.ID7, 10]
+  knn.pred7 = knn(train_X7, test_X7, train_Y7, k=7)
+  table(knn.pred7, test_Y7)
+  Accuracy = mean(knn.pred7 == test_Y7)
+  OUT.KNN7 = c(OUT.KNN7, Accuracy)
+  TRUTH = c(TRUTH, test_Y7)
+  OUTPUT = c(OUTPUT, knn.pred7)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.KNN7)
+mean(OUT.KNN7)
+sd(OUT.KNN7)/sqrt(length(OUT.KNN7))
+KNN7.5fold = OUT.KNN7
+boxplot(OUT.KNN7, col="orange")
+table(OUTPUT, TRUTH)
+```
+
+```{r}
+set.seed(134)
+start.time = Sys.time()
+OUT.KNN10 = NULL
+TRUTH = NULL 
+OUTPUT = NULL
+for (j in 1:nfold){
+  test.ID10 = which(folds2 == j)
+  train_X10 = FullPop[-test.ID10, -10]
+  train_Y10 = FullPop[-test.ID10, 10]
+  test_X10 = FullPop[test.ID10, -10]
+  test_Y10 = FullPop[test.ID10, 10]
+  knn.pred10 = knn(train_X10, test_X10, train_Y10, k=10)
+  table(knn.pred10, test_Y10)
+  Accuracy = mean(knn.pred10 == test_Y10)
+  OUT.KNN10 = c(OUT.KNN10, Accuracy)
+  TRUTH = c(TRUTH, test_Y10)
+  OUTPUT = c(OUTPUT, knn.pred10)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.KNN10)
+mean(OUT.KNN10)
+sd(OUT.KNN10)/sqrt(length(OUT.KNN10))
+KNN10.5fold = OUT.KNN10
+boxplot(OUT.KNN10, col="orange")
+table(OUTPUT, TRUTH)
+```
+
+## Results Summary
+
+### Full Dataset Results
+
+```{r}
+tabFUll = matrix(c(0.588, 0.603, 0.572, 0.581, 0.681, 0.503, 0.588, 0.603, 0.572, 0.769, 0.757, 0.770, 0.718, 0.692, 0.725, 0.682, 0.649, 0.693, 0.663, 0.646, 0.668), ncol=7, byrow=FALSE)
+rownames(tabFUll) = c("Accuracy", "Sensitivity", "Specificity")
+colnames(tabFUll) = c('LDA', 'QDA', 'Logistic Regression', 'KNN k=3', 'KNN k=5', 'KNN k=7', 'KNN k=10')
+tabFUll = as.table(tabFUll)
+tabFUll
+```
+
+```{r}
+par(mar = c(5.1, 4.1, 4.1, 1))
+barplot(tabFUll*100, main="Full Data",
+        xlab = "Model", ylab = "Percent",
+        col = c("#eb8060", "#a1e9f0", "#d9b1f0"),
+        legend.text = rownames(tabFUll),
+        args.legend = list(x = "topright",
+                           inset = c(0, -.2)),
+        beside = TRUE)
+```
+
+### Train/Test Split Results
+
+```{r}
+tabHalf = matrix(c(0.567, 0.589, 0.499, 0.544, 0.7, 0.4, 0.495, 0.482, 0.497, 0.507, 0.504, 0.499, 0.52, 0.516, 0.513, 0.525, 0.518, 0.521, 0.49, 0.512, 0.454), ncol=7, byrow=FALSE)
+rownames(tabHalf) = c("Accuracy", "Sensitivity", "Specificity")
+colnames(tabHalf) = c('LDA', 'QDA', 'Logistic Regression', 'KNN k=3', 'KNN k=5', 'KNN k=7', 'KNN k=10')
+tabHalf = as.table(tabHalf)
+tabHalf
+```
+
+```{r}
+par(mar = c(5.1, 4.1, 4.1, 1))
+barplot(tabHalf*100, main="Half of Data",
+        xlab = "Model", ylab = "Percent",
+        col = c("pink3", "seagreen", "orchid4"),
+        legend.text = rownames(tabHalf),
+        args.legend = list(x = "topright",
+                           inset = c(0, -.2)),
+        beside = TRUE)
+```
+
+### 5-Fold Cross-Validation Results
+
+```{r}
+tabFUll = matrix(c(0.569, 0.592, 0.546, 0.565, 0.647, 0.496, 0.569, 0.587, 0.549, 0.525, 0.504, 0.538, 0.529, 0.500, 0.549, 0.528, 0.500, 0.547, 0.528, 0.498, 0.550), ncol=7, byrow=FALSE)
+rownames(tabFUll) = c("Accuracy", "Sensitivity", "Specificity")
+colnames(tabFUll) = c('LDA', 'QDA', 'Logistic Regression', 'KNN k=3', 'KNN k=5', 'KNN k=7', 'KNN k=10')
+tabFUll = as.table(tabFUll)
+tabFUll
+```
+
+```{r}
+par(mar = c(5.1, 4.1, 4.1, 1))
+barplot(tabFUll*100, main="5-Fold CV",
+        xlab = "Model", ylab = "Percent",
+        col = c("#eb8060", "#a1e9f0", "#d9b1f0"),
+        legend.text = rownames(tabFUll),
+        args.legend = list(x = "topright",
+                           inset = c(0, -.18)),
+        beside = TRUE)
+```
+
+### Comparative Boxplot of 5-Fold CV Results
+
+```{r}
+set.seed(134)
+library(sciplot)
+require(gplots) 
+Bestrate = t(cbind(t(OUT.LDA), t(OUT.QDA), t(OUT.glm), t(KNN3.5fold), t(KNN5.5fold), t(KNN7.5fold), t(KNN10.5fold)))
+Type = c(rep("LDA", 5), rep("QDA", 5), rep("Logistic Regression", 5), rep("KNN3", 5), rep("KNN5", 5), rep("KNN7", 5), rep("KNN10", 5))
+Dat = data.frame(cbind(Bestrate, Type))
+boxplot(Bestrate ~ Type, data=Dat, xlab = "Methods", ylab = "Accuracy",
+        col=brewer.pal(n=8, "Set2"), cex.axes=1,
+        main = "Boxplot for 5-Fold CV on Song data", cex.main=1.5)
+legend(x="bottomright", inset = 0,
+       c("KNN k=10", "KNN k=3", "KNN k=5", "KNN k=7", "LDA", "Logistic Regression", "QDA"), cex=.65,
+       fill=brewer.pal(n=8, "Set2"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

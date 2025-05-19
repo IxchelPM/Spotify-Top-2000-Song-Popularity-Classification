@@ -1,0 +1,509 @@
+---
+title: " Predicting song popularity form Top 2000 Spotify Songs"
+author: "Ixchel peralta"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+suppressPackageStartupMessages({
+library(tidyverse);
+library(ggplot2);
+library(RColorBrewer);
+library(knitr);
+library(kableExtra);
+library(e1071)
+library(class)
+library(MASS)    
+library(data.table)
+library(tree)
+library(randomForest)
+library(gbm)
+library(xgboost)})
+```
+
+
+```{r}
+Songs= read.csv("Data/songsNewGenre.csv", header = TRUE)
+head(Songs)
+```
+
+
+
+```{r}
+Songs=Songs[,-18]
+Songs=Songs %>%
+  rename(
+   BPM = Beats.Per.Minute..BPM.,
+    dB = Loudness..dB.,Duration = Length..Duration.
+    ) # rename columns
+Songs$Duration=as.integer(gsub(",", "", Songs$Duration))
+```
+
+
+
+
+
+```{r}
+popularity_cat=ifelse(Songs$Popularity<median(Songs$Popularity),0,1)
+Songs=data.frame(Songs,popularity_cat)
+FullPop = Songs[,c(-1,-2,-3,-4,-5,-6,-16,-17)]
+```
+
+xgboost 
+```{r}
+#FullPop$popularity_cat = as.numeric(FullPop$popularity_cat)-1
+set.seed(12)
+folds3 = sample(rep(1:2,length.out = nrow(FullPop)))#two samples 
+testIDbm<- which(folds3==1)# if it has value 1 grab the row 
+trainSet <- FullPop[-testIDbm, ] 
+testSet <- FullPop[testIDbm, ]
+SongPop = as.matrix(trainSet) # turn it into matrix 
+SongPopTest = as.matrix(testSet)
+bst = xgboost(data=SongPop,label=trainSet$popularity_cat,max.depth=2,eta=1,nround=2,nthread=2,objective="binary:logistic")
+xgb.probs = predict(bst,SongPopTest)
+pred = as.numeric(xgb.probs > 0.5) 
+table(pred,SongPopTest[,10])
+mean(pred == SongPopTest[,10])
+```
+```{r}
+nfold=5
+set.seed(12)
+folds0 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+start.time = Sys.time()
+OUT.xgb=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(j in 1:nfold){
+  testIDbm<- which(folds0 == j)
+  trainSet <- FullPop[-testIDbm, ] 
+  testSet <- FullPop[testIDbm, ]
+  SongPop = as.matrix(trainSet) 
+  SongPopTest = as.matrix(testSet)
+  bst = xgboost(data=SongPop,label=trainSet$popularity_cat,max.depth=2,eta=1,nround=2,nthread=2,objective="binary:logistic")
+  xgb.probs = predict(bst,SongPopTest)
+  pred = as.numeric(xgb.probs > 0.5)
+  table(pred,SongPopTest[,10])
+  Accuracy=mean(pred ==SongPopTest[,10])
+  OUT.xgb=c(OUT.xgb, Accuracy)
+  TRUTH = c(TRUTH, SongPopTest[,10])
+  OUTPUT= c(OUTPUT, pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.xgb)
+mean(OUT.xgb)
+sd(OUT.xgb)/sqrt(length(OUT.xgb))
+table(OUTPUT,TRUTH)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+set.seed(12)
+nfold = 5
+foldi=sample(rep(1:nfold, length.out = nrow(Songs)))
+```
+
+```{r}
+set.seed(12)
+start.time = Sys.time()
+OUT.glm=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(k in 1:nfold){
+  testID<- which(foldi == k)
+  trainSet <- FullPop[-testID, ] 
+  testSet <- FullPop[testID, ]
+  glm.fit = glm(popularity_cat~.,data = trainSet,family = binomial)
+  glm.probs = predict(glm.fit,testSet,type="response")
+  glm.pred = rep(0,length(testID))
+  glm.pred[glm.probs>.5]=1
+  table(glm.pred,testSet$popularity_cat)
+  Accuracy=mean(glm.pred == testSet$popularity_cat)
+  OUT.glm=c(OUT.glm, Accuracy)
+  TRUTH = c(TRUTH, testSet$popularity_cat)
+  OUTPUT= c(OUTPUT, glm.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.glm)
+mean(OUT.glm)
+sd(OUT.glm)/sqrt(length(OUT.glm))
+boxplot(OUT.glm,col="pink")
+table(OUTPUT,TRUTH)
+``` 
+
+```{r}
+set.seed(12)
+foldsi = sample(rep(1:nfold, length.out = nrow(FullPop))) 
+```
+
+
+```{r}
+set.seed(12)
+start.time = Sys.time()
+OUT.LDA=NULL
+TRUTH = NULL 
+OUTPUT=NULL
+for (k in 1:nfold){
+  test.ID2 <- which(foldsi == k)
+  train_set2 <- FullPop[-test.ID2, ]
+  test_set2 <- FullPop[test.ID2, ]
+  lda.fit=lda(popularity_cat~., data=train_set2)
+  lda.pred=predict(lda.fit, test_set2[-10])
+  lda.class=lda.pred$class
+  table(lda.class,test_set2[,10])
+  Accuracy=mean(lda.class==test_set2[,10])
+  OUT.LDA=c(OUT.LDA, Accuracy)
+  TRUTH = c(TRUTH, test_set2[,10])
+  OUTPUT= c(OUTPUT, lda.class)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.LDA)
+mean(OUT.LDA)
+sd(OUT.LDA)/sqrt(length(OUT.LDA))
+boxplot(OUT.LDA,col="BLUE")
+table(OUTPUT,TRUTH)
+```
+
+
+```{r}
+set.seed(12)
+folds1 = sample(rep(1:nfold, length.out = nrow(FullPop))) 
+```
+
+
+```{r}
+set.seed(12) 
+start.time = Sys.time()
+OUT.QDA=NULL
+TRUTH = NULL 
+OUTPUT=NULL
+for (k in 1:nfold){
+  test.ID3 <- which(folds1 == k)
+  train_set3 <- FullPop[-test.ID3, ]
+  test_set3 <- FullPop[test.ID3, ]
+  qda.fit=qda(popularity_cat~., data=train_set3)
+  qda.pred=predict(qda.fit, test_set3)
+  qda.class=qda.pred$class
+  table(qda.class,test_set3[,10])
+  Accuracy=mean(qda.class==test_set3[,10])
+  OUT.QDA=c(OUT.QDA, Accuracy)
+  TRUTH = c(TRUTH, test_set3[,10])
+  OUTPUT= c(OUTPUT, qda.class)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.QDA)
+mean(OUT.QDA)
+sd(OUT.QDA)/sqrt(length(OUT.QDA))
+boxplot(OUT.QDA,col="BLUE")
+table(OUTPUT,TRUTH)
+```
+
+
+```{r}
+set.seed(12)
+folds2 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+```
+
+
+```{r}
+set.seed(12)
+start.time = Sys.time()
+OUT.KNN=NULL
+TRUTH = NULL 
+OUTPUT=NULL
+for (j in 1:nfold){
+  test.ID = which(folds2 == j)
+  train_X = FullPop[-test.ID, -10]
+  train_Y = FullPop[-test.ID, 10]
+  test_X = FullPop[test.ID, -10]
+  test_Y = FullPop[test.ID, 10]
+  knn.pred=knn(train_X, test_X, train_Y, k=5)
+  table(knn.pred,test_Y)
+  Accuracy=mean(knn.pred==test_Y)
+  OUT.KNN=c(OUT.KNN, Accuracy)
+  TRUTH = c(TRUTH, test_Y)
+  OUTPUT= c(OUTPUT, knn.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.KNN)
+mean(OUT.KNN) 
+sd(OUT.KNN)/sqrt(length(OUT.KNN))
+KNN5.5fold=OUT.KNN
+boxplot(OUT.KNN,col="orange")
+table(OUTPUT,TRUTH)
+```
+
+
+
+```{r}
+set.seed(12)
+folds3 = sample(rep(1:2,length.out = nrow(FullPop)))
+testIDbm<- which(folds3==1)
+trainSet <- FullPop[-testIDbm, ] 
+testSet <- FullPop[testIDbm, ]
+gbm.fit = gbm(popularity_cat~.,data = trainSet,distribution = "bernoulli",n.trees = 1000,shrinkage = 0.01)
+summary(gbm.fit)
+```
+
+
+
+
+Boosting
+
+```{r}
+set.seed(12)
+folds3 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+start.time = Sys.time()
+OUT.gbm=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(j in 1:nfold){
+  testIDbm<- which(folds3 == j)
+  trainSet <- FullPop[-testIDbm, ] 
+  testSet <- FullPop[testIDbm, ]
+  gbm.fit = gbm(popularity_cat~.,data = trainSet,distribution = "bernoulli",n.trees = 1000,shrinkage = 0.01)
+  gbm.probs = predict(gbm.fit,testSet,type="response")
+  gbm.pred = rep(0,length(testIDbm))
+  gbm.pred[gbm.probs>.5]=1
+  table(gbm.pred,testSet$popularity_cat)
+  Accuracy=mean(gbm.pred == testSet$popularity_cat)
+  OUT.gbm=c(OUT.gbm, Accuracy)
+  TRUTH = c(TRUTH, testSet$popularity_cat)
+  OUTPUT= c(OUTPUT, gbm.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.gbm)
+mean(OUT.gbm)
+sd(OUT.gbm)/sqrt(length(OUT.gbm))
+boxplot(OUT.gbm,col="pink")
+table(OUTPUT,TRUTH)
+``` 
+
+AdBoosting
+```{r}
+set.seed(12)
+folds4 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+start.time = Sys.time()
+OUT.gAd=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(j in 1:nfold){
+  testIDAd<- which(folds4 == j)
+  trainSet <- FullPop[-testIDAd, ] 
+  testSet <- FullPop[testIDAd, ]
+  gAd.fit = gbm(popularity_cat~.,data = trainSet,distribution = "adaboost",n.trees = 1000,shrinkage = 0.01)
+  gAd.probs = predict(gAd.fit,testSet,type="response")
+  gAd.pred = rep(0,length(testIDAd))
+  gAd.pred[gAd.probs>.5]=1
+  table(gAd.pred,testSet$popularity_cat)
+  Accuracy=mean(gAd.pred == testSet$popularity_cat)
+  OUT.gAd=c(OUT.gAd, Accuracy)
+  TRUTH = c(TRUTH, testSet$popularity_cat)
+  OUTPUT= c(OUTPUT, gAd.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.gAd)
+mean(OUT.gAd)
+sd(OUT.gAd)/sqrt(length(OUT.gAd))
+boxplot(OUT.gAd,col="blue")
+table(OUTPUT,TRUTH)
+```
+
+DT 
+
+```{r}
+set.seed(12)
+folds5 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+FullPop$popularity_cat=factor(FullPop$popularity_cat)
+start.time = Sys.time()
+OUT.tree=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(j in 1:nfold){
+  testIDT<- which(folds5 == j)
+  trainSet <- FullPop[-testIDT, ] 
+  testSet <- FullPop[testIDT, ]
+  tree.pop = tree(popularity_cat~.,FullPop,subset=-testIDT)
+  tree.pred = predict(tree.pop,testSet,type="class")
+  Pop.test = FullPop$popularity_cat[testIDT]
+  table(tree.pred,Pop.test)
+  Accuracy=mean(tree.pred == Pop.test)
+  OUT.tree=c(OUT.tree, Accuracy)
+  TRUTH = c(TRUTH, Pop.test)
+  OUTPUT= c(OUTPUT, tree.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+cvTree = cv.tree(tree.pop,FUN = prune.misclass)
+par(mfrow=c(1,2))
+plot(cvTree$size,cvTree$dev,type = "b")
+plot(cvTree$k,cvTree$dev,type = "b")
+print(OUT.tree)
+mean(OUT.tree)
+sd(OUT.tree)/sqrt(length(OUT.tree))
+boxplot(OUT.tree,col="blue")
+table(OUTPUT,TRUTH)
+```
+ 
+Prune tree
+```{r}
+set.seed(12)
+folds6 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+FullPop$popularity_cat=factor(FullPop$popularity_cat)
+start.time = Sys.time()
+OUT.CVtree=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(j in 1:nfold){
+  testIDCV<- which(folds6 == j)
+  trainSet <- FullPop[-testIDCV, ] 
+  testSet <- FullPop[testIDCV, ]
+  tree.pop = tree(popularity_cat~.,FullPop,subset=-testIDCV)
+  prune.tree = prune.misclass(tree.pop,best=2)
+  tree.pred = predict(prune.tree,testSet,type="class")
+  Pop.test = FullPop$popularity_cat[testIDCV]
+  table(tree.pred,Pop.test)
+  Accuracy=mean(tree.pred == Pop.test)
+  OUT.CVtree=c(OUT.CVtree, Accuracy)
+  TRUTH = c(TRUTH, Pop.test)
+  OUTPUT= c(OUTPUT, tree.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.CVtree)
+mean(OUT.CVtree)
+sd(OUT.CVtree)/sqrt(length(OUT.CVtree))
+boxplot(OUT.CVtree,col="blue")
+table(OUTPUT,TRUTH)
+```
+
+Bagging
+
+```{r}
+set.seed(12)
+folds7 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+FullPop$popularity_cat=factor(FullPop$popularity_cat)
+start.time = Sys.time()
+OUT.bag=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(j in 1:nfold){
+  testIDbag<- which(folds7 == j)
+  trainSet <- FullPop[-testIDbag, ] 
+  testSet <- FullPop[testIDbag, ]
+  bag.pop = randomForest(popularity_cat~.,FullPop,subset=-testIDbag,mtry=9,importance=TRUE,ntree=1000)
+  bag.pred=predict(bag.pop,testSet,type="class")
+  bag.test = FullPop$popularity_cat[testIDbag]
+  table(bag.pred,bag.test)
+  Accuracy=mean(bag.pred == bag.test)
+  OUT.bag=c(OUT.bag, Accuracy)
+  TRUTH = c(TRUTH, bag.test)
+  OUTPUT= c(OUTPUT, bag.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.bag)
+mean(OUT.bag)
+sd(OUT.bag)/sqrt(length(OUT.bag))
+boxplot(OUT.bag,col="green")
+table(OUTPUT,TRUTH)
+```
+Random forest 
+
+```{r}
+set.seed(12)
+folds8 = sample(rep(1:nfold,length.out = nrow(FullPop)))
+FullPop$popularity_cat=factor(FullPop$popularity_cat)
+start.time = Sys.time()
+OUT.RF=NULL
+TRUTH = NULL
+OUTPUT=NULL
+for(j in 1:nfold){
+  testIDRF<- which(folds8 == j)
+  trainSet <- FullPop[-testIDRF, ] 
+  testSet <- FullPop[testIDRF, ]
+  RF.pop = randomForest(popularity_cat~.,FullPop,subset=-testIDRF,mtry=1,importance=TRUE,ntree=1000)
+  RF.pred=predict(RF.pop,testSet,type="class")
+  RF.test = FullPop$popularity_cat[testIDRF]
+  table(RF.pred,RF.test)
+  Accuracy=mean(RF.pred == RF.test)
+  OUT.RF=c(OUT.RF, Accuracy)
+  TRUTH = c(TRUTH, RF.test)
+  OUTPUT= c(OUTPUT, RF.pred)
+}
+end.time = Sys.time()
+time.taken = end.time - start.time
+time.taken
+print(OUT.RF)
+mean(OUT.RF)
+sd(OUT.RF)/sqrt(length(OUT.RF))
+boxplot(OUT.RF,col="green")
+table(OUTPUT,TRUTH)
+```
+
+
+
+```{r}
+tabFUll = matrix(c(0.572,0.593,0.551,0.554,0.63,0.477,0.572,0.591,0.553,0.521,0.50,0.539,0.576,0.563,0.588,0.556,0.561,0.551,0.576,0.566,0.586,0.539,0.247,0.835,0.563,0.559,0.567), ncol=9, byrow=FALSE)
+rownames(tabFUll) = c("Accuracy","Sensitivity","Specificity")
+colnames(tabFUll) = c('LDA','QDA','Logistic Regression','KNN k=5','AdaBoost',"Bagging",'Boosting',"Decision Tree","Random Forest")
+tabFUll = as.table(tabFUll)
+tabFUll
+```
+
+
+```{r}
+par(mar = c(6.1, 4.1, 4.1, 1))
+barplot(tabFUll*100,main="5-Fold CV",
+        xlab = "Model", ylab = "Percent",
+        col =c("#eb8060", "#a1e9f0", "#d9b1f0"),
+        legend.text =rownames(tabFUll),
+        args.legend = list(x = "topright",
+                           inset = c(-.04, -.1)),
+        beside = TRUE)
+```
+
+
+
+```{r}
+set.seed(12)
+library(sciplot)
+require(gplots) 
+Bestrate=t(cbind(t(OUT.LDA),t(OUT.QDA),t(OUT.glm),t(KNN5.5fold),t(OUT.bag),t(OUT.gbm),t(OUT.tree),t(OUT.RF),t(OUT.gAd)))
+Type=c(rep("LDA", 5),rep("QDA", 5),rep("Logistic Regression", 5), rep("KNN5",5),rep("Bagging",5),rep("Boosting",5),rep("Decision Tree",5),rep("Random Forest",5),rep('AdaBoost',5))
+Type
+Dat=data.frame(cbind(Bestrate, Type))
+boxplot(Bestrate ~ Type, data=Dat, xlab = "Methods", ylab = "Accuracy",
+col=brewer.pal(n=8,"Set2"), cex.axes=1,
+main = "Boxplot for 5-Fold CV on Song data", cex.main=1.5)
+legend(x="bottomright", inset = 0,
+c('AdaBoost',"Bagging",'Boosting',"Decision Tree","KNN k=5","LDA","Logistic Regression","QDA","Random Forest"), cex=.4,
+fill=brewer.pal(n=8,"Set2"))
+```
