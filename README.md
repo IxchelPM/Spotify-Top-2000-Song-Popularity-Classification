@@ -1,8 +1,8 @@
-# 🎧 Spotify Top 2000 Song Popularity
+# Spotify Top 2000 Song Popularity
 
 This project explores the relationship between song characteristics and popularity using Spotify’s **All-Time Top 2000 Tracks** dataset. The goal is to classify songs as either **popular** or **not popular** based on a range of audio features and genre.
 
-## 📊 Dataset
+## Dataset
 
 - **Source**: Spotify All-Time Top 2000 Tracks
 - **Observations**: 1994 songs
@@ -10,7 +10,7 @@ This project explores the relationship between song characteristics and populari
   - **Numerical**: BPM, Energy, Danceability, Loudness, Valence, Duration, Acousticness, Speechiness, Liveness
   - **Categorical**: Genre (cleaned and grouped into 6 categories)
 
-## 🎯 Problem Statement
+## Problem Statement
 
 We transform the continuous `popularity` variable into a binary classification target:
 - **1**: Song is **popular** (popularity ≥ median)
@@ -18,7 +18,7 @@ We transform the continuous `popularity` variable into a binary classification t
 
 The objective is to predict this binary outcome using various classification algorithms.
 
-## 🧪 Methods
+## Methods
 
 Implemented and compared the following classification models:
 
@@ -38,7 +38,7 @@ Implemented and compared the following classification models:
 - 50/50 train-test split
 - 5-fold Cross-Validation
 
-## 🛠 Tools Used
+##Tools Used
 
 - **Language**: R
 - **Libraries**: `tidyverse`, `MASS`, `class`, `ggplot2`
