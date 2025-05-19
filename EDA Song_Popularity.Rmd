@@ -1,0 +1,330 @@
+---
+title: "EDA Top Tracks"
+author: "Ixchel Peralta-martinez"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+suppressPackageStartupMessages({
+library(tidyverse);
+library(ggplot2);
+library(RColorBrewer);
+library(knitr);
+library(kableExtra);
+library(RColorBrewer);
+library("papeR");
+library(readxl)
+myPalette <- brewer.pal(8, "Set2") })
+```
+
+
+
+```{r}
+Songs <- read_xlsx(path = "Data/Top_2000_Songs_Dataset.xlsx")
+head(Songs)
+```
+
+```{r}
+Numsongs = Songs[,6:15]#keep numeric vars
+colSums(is.na(Numsongs))# check if any column has misssing variable 
+head(Numsongs)
+```
+
+
+```{r}
+Numsongs2=Numsongs %>% 
+  rename(
+    BPM = "Beats Per Minute (BPM)",
+    dB = "Loudness (dB)",Duration = "Length (Duration)"
+    ) # rename columns 
+```
+
+```{r}
+Numsongs2$Duration=as.integer(gsub(",", "", Numsongs2$Duration))# find any commas remove them change char into integer 
+colSums(is.na(Numsongs2))#check make sure no missing values 
+```
+
+
+```{r}
+par(mfrow=c(3,2))
+hist(Numsongs2$BPM, main = "Beats per minute", xlab = "BPM", ylab= "Frequency",col=2)
+hist(Numsongs2$Energy, main = "Song Energy", xlab = "energy", ylab= "Frequency",col=3)
+hist(Numsongs2$Danceability, main = "Dance level", xlab = "dance", ylab= "Frequency",col=4)
+```
+
+The histogram for beat per minute shows higher frequencies for bins that range from 50 to 100. Therefore, the distribution may be skewed to the right. However, the song's energy and dance level seems evenly distributed among the bins. Thus, the distributions may be normally distributed.
+
+
+```{r}
+par(mfrow=c(3,2))
+hist(Numsongs2$dB, main = "Loudness", xlab = "dB", ylab= "Frequency",col=5)
+hist(Numsongs2$Liveness, main = "Liveness", xlab = "value of live", ylab= "Frequency",col=6)
+hist(Numsongs2$Valence, main = "Mood song", xlab = "postive mood", ylab= "Frequency",col=7)
+```
+
+The loudness histogram shows more values between the range -15 dB and -5. Again, this distribution may be skewed to the left. The histogram for liveness shows higher frequencies for bins that range from 0 to 20. Therefore, the distribution may be skewed to the right. However, the song's mood is more evenly distributed among the bins. Thus, the distributions may be normally distributed
+
+
+```{r}
+par(mfrow=c(3,2))
+hist(Numsongs2$Duration, main = "Length of song", xlab = "time", ylab= "Frequency",col=8)
+hist(Numsongs2$Acousticness, main = "Acoustic", xlab = "level of acoustic", ylab= "Frequency",col=11)
+hist(Numsongs2$Speechiness, main = "Words Spoken", xlab = "number of words", ylab= "Frequency",col=10)
+```
+
+Most of the values for the length of the song histogram are less than 500. This distribution may be normal.The acoustic histogram shows that most values fall from 0 to 20, and all other values are spread evenly.The distribution may be skewed to the right. Words spoken histogram show that almost all of the value falls between 0 and 10.The distribution may be skewed to the right. 
+
+
+```{r}
+par(mfrow=c(2,2))
+dotchart(Numsongs2$BPM, main="Beats per minute", col=2)
+dotchart(Numsongs2$dB, main="Loudness", col=3)
+boxplot(Numsongs2$BPM, horizontal = TRUE, main="Beats per minute", col=myPalette[2])
+boxplot(Numsongs2$dB, horizontal = TRUE, main="Loudness", col=myPalette[3])
+```
+
+The dot plot for beats per minute shows a cluster of points between 75 to 150 with a couple of points outside the cluster. A similar finding is found when looking at the box plot. The box plot shows that the distribution may be normal, with potential outliers mainly occurring after the maximum. The dot plot for loudness shows a cluster from -15 t0 -20. A similar finding is found when looking at the box plot. Again, the box plot shows that the distribution is normal but may have potential outliers before the minimum.
+
+
+```{r}
+par(mfrow=c(2,2))
+dotchart(Numsongs2$Duration, main="Length of Song", col=4)
+dotchart(Numsongs2$Acousticness, main="Acoustic", col=5)
+boxplot(Numsongs2$Duration, horizontal = TRUE, main="Length of Song", col=myPalette[4])
+boxplot(Numsongs2$Acousticness, horizontal = TRUE, main="Acoustic", col=myPalette[5])
+```
+
+The dot plot for a song's length shows a cluster of 200 to 400 with a couple of points outside the cluster. A similar finding is found when looking at the box plot. The box plot shows that the distribution may be normal, with potential outliers mainly occurring after the maximum. The dot plot for an acoustic shows a cluster from 0-20 and even spread after. A similar finding is found when looking at the box plot. The box plot shows that the distribution may be skewed to the right, but there aren't any potential outliers.
+
+```{r}
+par(mfrow=c(2,2))
+dotchart(Numsongs2$Speechiness, main="Number of words", col=6)
+boxplot(Numsongs2$Speechiness, horizontal = TRUE, main="Number of words", col=myPalette[6])
+dotchart(Numsongs2$Liveness, main="Liveness", col=8)
+boxplot(Numsongs2$Liveness, horizontal = TRUE, main="Liveness", col=myPalette[8])
+
+
+```
+
+The dot plot for the number of words for a song shows a cluster of 0 to 20 with a couple of points outside the cluster. A similar finding is found when looking at the box plot. The box plot shows that the distribution may be normal, with potential outliers mainly occurring after the maximum. The dot plot for liveness shows a cluster from 0-40. A similar finding is found when looking at the box plot. Again, the box plot shows that the distribution may be skewed to the right, with potential outliers occurring after the maximum.
+
+```{r}
+names <- c("BPM","Energy","Danceability","dB","Liveness")
+knitr::kable(xtable(summarize(Numsongs2[,names], caption = "Data Summary for Numeric variables in Songs")))
+```
+
+The five-number summary for beats per minute shows that the mean is larger than the median, so the distribution for beats per minute may be slightly skewed to the right. In addition, the maximum and minimum are an outlier for beats per minute because it is smaller than 43.5 and larger than 191.5. The five-number summary for energy shows that the median is larger than the mean, so the distribution for energy may be skewed to the left. Contains no outliers. The five-number summary for dance ability shows that the mean is larger than the median, so the distribution for dance ability may be slightly skewed to the right. In addition, the maximum and minimum are an outlier for dance ability because it is smaller than 11.5 and larger than 95.5. The five-number summary for dB shows that the median is larger than the mean, so the distribution for energy may be skewed to the left. The minimum is an outlier because it is smaller than -18.5.The five-number summary for Liveness shows that the mean is larger than the median so the distribution may be skewed to the right. The maximum is an outlier for the liveness because it is greater than 44.
+
+```{r}
+names <- c("BPM","Energy","Danceability","dB","Liveness","Valence","Duration","Acousticness","Speechiness")
+knitr::kable(xtable(summarize(Numsongs2[,names], caption = "Data Summary for Numeric variables in Songs")))
+```
+```{r}
+names <- c("BPM","Energy","Danceability","dB","Liveness")
+knitr::kable(xtable(summarize(Numsongs2[,names], caption = "Data Summary for Numeric variables in Songs")))
+```
+
+
+In the five-number summary for valence, the mean is larger than the median so the distribution may be skewed to the right. Contains no outliers. In the five-number summary for the duration, the mean is larger than the median, so that the distribution may be skewed to the right. In addition, the maximum and minimum are outliers for the duration because it is smaller than 96.5 and larger than 404.5.In the five-number summary for acoustics, the mean is larger than the median, so that the distribution may be skewed to the right. Contains no outliers. In the five-number summary for speechiness, the mean is larger than the median, so that the distribution may be skewed to the right. In addition, the maximum is an outlier for speeches because it is larger than 8.
+
+```{r}
+names <- c("Popularity","BPM","Energy","Danceability","dB","Valence","Duration","Acousticness","Speechiness","Liveness")
+(CORR=cor(Numsongs2[,names]))
+onlyBottom= CORR
+onlyBottom[upper.tri(CORR)]<-""
+onlyBottom<-as.data.frame(onlyBottom)
+onlyBottom
+```
+
+```{r}
+names <- c("Popularity","BPM","Energy","Danceability","dB","Valence","Duration","Acousticness","Speechiness","Liveness")
+CORR=cor(Numsongs2[,names])
+heatmap(cor(Numsongs2[,names]))
+```
+
+Most of the correlation coefficients have a weak or no relationship for both positive and negative values for all different pairs of variables. The most correlated among all pairs is the value for energy and loudness, with correlation coefficients of 0.736. Other significant correlations include valance and energy with a correlation coefficient of 0.405, acousticness and energy with a correlation coefficient of 	-0.665, valence and dance ability with a correlation coefficient of  0.515, and loudness and acoustic with a correlation coefficient of -0.452. The popularity variable is the most correlated with dance ability with a correlation coefficient of 0.14 and loudness with a correlation coefficient of 0.166. The smallest correlation coefficient among the pairs is duration and speechiness, with a correlation coefficient of 0.023.
+
+```{r}
+names <- c("Popularity","Duration","Acousticness","Speechiness","Liveness")
+pairs(Numsongs2[,names], col=2)
+```
+```{r}
+names <- c("Popularity","BPM","Energy","Danceability","dB","Valence")
+pairs(Numsongs2[,names], col=2)
+
+```
+
+The scatter plot shows that the population variable pairs are not linearly related. However, the energy and the loudness are positive and linearly related. 
+
+```{r}
+plot(Numsongs2$BPM,Numsongs2$Popularity, main= "Beats per minute and popularity", xlab="BPM", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$BPM,Numsongs2$Popularity), col="red")
+```
+```{r}
+plot(Numsongs2$Energy,Numsongs2$Popularity, main= "Energy and popularity", xlab="Energy", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$Energy,Numsongs2$Popularity), col="red")
+```
+```{r}
+
+plot(Numsongs2$Danceability,Numsongs2$Popularity, main= "level of dance and popularity", xlab="Danceable", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$Danceability,Numsongs2$Popularity), col="red")
+```
+```{r}
+plot(Numsongs2$dB,Numsongs2$Popularity, main= "loudness and popularity", xlab="loudness", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$dB,Numsongs2$Popularity), col="red")
+
+```
+
+```{r}
+plot(Numsongs2$Valence,Numsongs2$Popularity, main= "postive mood and popularity", xlab="valence", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$Valence,Numsongs2$Popularity), col="red")
+```
+
+```{r}
+plot(Numsongs2$Duration,Numsongs2$Popularity, main= "Duration and popularity", xlab="time", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$Duration,Numsongs2$Popularity), col="red")
+
+```
+```{r}
+plot(Numsongs2$Acousticness,Numsongs2$Popularity, main= "Acoustic and popularity", xlab="acoustic", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$Acousticness,Numsongs2$Popularity), col="red")
+```
+```{r}
+plot(Numsongs2$Speechiness,Numsongs2$Popularity, main= "Words spoken and popularity", xlab="Number of words", ylab="Popularity", pch=19)
+lines(lowess(Numsongs2$Speechiness,Numsongs2$Popularity), col="red")
+```
+
+Most scatter plots have no relation when popularity is the response variable. However, the duration of a song and the popularity of a song does show a slight negative linear relation. The value for spoken words and the song's popularity shows a slight positive linear relation.
+
+## Categorical vairable 
+```{r}
+names(Songs)[names(Songs) == "Top Genre"] <- "TopGenre"
+UniqueSongGenre = unique(Songs$TopGenre)# find all unique genres 
+wordGenre=strsplit(UniqueSongGenre,split = " ")# split each 
+words=c()
+wordsExc=c()
+soul=c()
+jazz=c()
+hip=c()
+alternative=c()
+dance = c()
+rock = c()
+pop = c()
+for(i in wordGenre) {               # Run for-loop over lists
+  for(j in i) {  
+  # Run for-loop over lists
+    words = c(words, j)
+}
+}
+for(i in wordGenre) {
+wordsExc = c(wordsExc, trimws(paste(gsub("dutch|arkansas|uk|british|italian|australian|scottish|belgian|canadian|danish|german|alaska|finnish","",i),collapse=" ")))
+}
+for(i in wordsExc) {
+  soul = c(soul,str_replace_all(i,".*soul.*","soul"))
+}
+for(i in soul) {
+  jazz = c(jazz,str_replace_all(i,".*jazz.*","jazz"))
+}
+for(i in jazz) {
+  hip = c(hip,str_replace_all(i,".*hip hop.*","hip hop"))
+}
+for(i in hip) {
+  alternative = c(alternative,str_replace_all(i,".*alternative.*","alternative"))
+}
+for(i in alternative) {
+  dance = c(dance,str_replace_all(i,".*dance.*","dance"))
+}
+
+for(i in dance) {
+  rock = c(rock,str_replace_all(i,".*rock.*","rock"))
+}
+for(i in rock) {
+  pop = c(pop,str_replace_all(i,".*pop.*","pop"))
+}
+#unique(pop)
+```
+
+
+```{r}
+#replacing with top genre names based on unique element found above 
+onlysoul = c()
+onlyjazz=c()
+onlyhip=c()
+onlyalternative=c()
+onlyedm=c()
+onlydance = c()
+onlyindie = c()
+onlyfolk = c()
+onlyrock = c()
+onlyadult= c()
+onlycab=c()
+other=c()
+Abbrev = c()
+#replacing with top genre names based on unique element found above
+onlyalternative=c()
+onlydance = c()
+onlyindie = c()
+onlyrock = c()
+onlyadult= c()
+other=c()
+Abbrev = c()
+for(i in Songs$TopGenre) {
+  onlyalternative = c(onlyalternative,str_replace_all(i,".*alternative.*|.*permanent wave.*|.*indie.*","alternative"))
+}# replacing anything which contains alternative
+for(i in onlyalternative) {
+  onlydance = c(onlydance,str_replace_all(i,".*dance.*|.*disco.*|.*electro.*|.*downtempo.*|.*j-core.*|.*diva house.*|.*cyberpunk.*|.*edm|.*gabba.*|.*big room.*|.*trance.*|.*eurodance.*|.*big beat.*|.*happy hardcore.*","dance"))
+}# replacing anything which contains dance
+for(i in onlydance) {
+  onlyrock = c(onlyrock,str_replace_all(i,".*rock.*|.*british invasion.*|.*glam metal.*","rock"))
+}# replacing anything which contains rock
+for(i in onlyrock) {
+  onlyadult = c(onlyadult,str_replace_all(i,".*adult standards.*|.*soul.*|.*jazz.*","adult standards"))
+}# replacing anything which contains adult standards
+for(i in onlyadult) {
+  other = c(other,str_replace_all(i,".*pop.*|.*neo mellow.*","pop"))
+}# replacing anything which contains pop
+for(i in other) {
+  j=str_replace_all(i,"^(?!(alternative|dance|rock|adult standards|pop))","other")
+  Abbrev = c(Abbrev,str_replace_all(j,".*other.*","other"))
+}# replacing everything else
+```
+
+
+```{r}
+pie(table(Songs$TopGenre))
+```
+```{r}
+data=as.data.frame(table(Abbrev))
+
+pie(data$Freq,data$Abbrev,main = "Genre",col=brewer.pal(7, "Pastel2"))
+```
+
+After categorizing the genres into related categories, the pie chart shows almost half of the song fall in the genres belonging to pop and rock songs. Some of the large slices of the chart include adult standards, dance, alternative, and songs that did not fall within any significant categories. 
+
+```{r}
+barplot(table(Songs$TopGenre))
+```
+```{r}
+default_margins <- par("mar")
+new_margins <- default_margins + c(4, 0, 0, 0)
+par(mar = new_margins)
+barplot(data[order(data[,2],decreasing=TRUE),
+        ][,2],names.arg=data[order(data[,2],decreasing=TRUE),
+        ][,1],col=brewer.pal(15, "Pastel2"),
+        ylab="Frequency",main="Genre",border="black",las=2)
+```
+
+The bar plot shows a similar finding to the pie chart. Again, the largest count is rock, with over 700 songs falling in the category. The second largest count is pop, with a count of close to 300 songs. The next largest counts are alternative and dances with counts of over 100 songs. 
+
+
+```{r}
+#write Excel file 
+Songs=data.frame(Songs,Abbrev)
+head(Songs)
+write.csv(Songs,file="Data/songsNewGenre.csv")
+```
+
+
