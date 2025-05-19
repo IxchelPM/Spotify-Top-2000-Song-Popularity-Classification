@@ -38,7 +38,7 @@ Implemented and compared the following classification models:
 - 50/50 train-test split
 - 5-fold Cross-Validation
 
-##Tools Used
+## Tools Used
 
 - **Language**: R
 - **Libraries**: `tidyverse`, `MASS`, `class`, `ggplot2`
