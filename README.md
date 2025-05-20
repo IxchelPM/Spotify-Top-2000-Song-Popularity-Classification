@@ -1,6 +1,6 @@
-# Spotify Top 2000 Song Popularity
+# Spotify Top 2000 Song Popularity Classification
 
-This project explores the relationship between song characteristics and popularity using Spotify’s **All-Time Top 2000 Tracks** dataset. The goal is to classify songs as either **popular** or **not popular** based on a range of audio features and genre.
+This project uses Spotify’s **All-Time Top 2000 Tracks** dataset to explore the relationship between song characteristics and popularity. The goal is to classify songs as **popular** or **not popular** based on a range of audio features and genres.
 
 ## Dataset
 
